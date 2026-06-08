@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🌍 Where in the World? – Icebreaker Game</title>
+  <style>
+    /* ===== GLOBAL RESET & FONTS ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px;
+      color: #fff;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+    header h1 {
+      font-size: 2.4em;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px #00d4ff;
+      color: #00d4ff;
+    }
+    header p {
+      font-size: 1em;
+      color: #aad4f5;
+      margin-top: 4px;
+    }
+
+    /* ===== ROUND TRACKER ===== */
+    #round-tracker {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .round-dot {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 2px solid #00d4ff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75em;
+      color: #aad4f5;
+      transition: all 0.4s;
+    }
+    .round-dot.active { background: #00d4ff; color: #000; font-weight: bold; }
+    .round-dot.done   { background: #27ae60; border-color: #27ae60; color: #fff; }
+
+    /* ===== SCORE ===== */
+    #scoreboard {
+      font-size: 1.1em;
+      color: #ffd700;
+      margin-bottom: 14px;
+      letter-spacing: 1px;
+    }
+
+    /* ===== LANDMARK INFO ===== */
+    #landmark-label {
+      font-size: 1em;
+      color: #cce7ff;
+      margin-bottom: 10px;
+      min-height: 22px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* ===== IMAGE REVEAL GRID ===== */
+    #reveal-container {
+      position: relative;
+      width: 420px;
+      max-width: 95vw;
+      aspect-ratio: 4/3;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0,212,255,0.4);
+      margin-bottom: 18px;
+      background: #000;
+    }
+    #landmark-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 14px;
+    }
+    #tile-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      pointer-events: none;
+    }
+    .tile {
+      background: #1a1a2e;
+      border: 1px solid rgba(0,212,255,0.15);
+      transition: opacity 0.5s ease;
+    }
+    .tile.revealed { opacity: 0; }
+
+    /* ===== REVEAL BUTTON ===== */
+    #reveal-btn {
+      background: linear-gradient(135deg, #00d4ff, #0070ff);
+      color: #fff;
+      border: none;
+      padding: 11px 32px;
+      border-radius: 30px;
+      font-size: 1em;
+      cursor: pointer;
+      margin-bottom: 18px;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(0,212,255,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    #reveal-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(0,212,255,0.6); }
+    #reveal-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ===== CHOICES ===== */
+    #choices {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 420px;
+      max-width: 95vw;
+      margin-bottom: 18px;
+    }
+    .choice-btn {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(0,212,255,0.3);
+      color: #fff;
+      padding: 14px 10px;
+      border-radius: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+    .choice-btn:hover:not(:disabled) {
+      background: rgba(0,212,255,0.2);
+      border-color: #00d4ff;
+      transform: translateY(-2px);
+    }
+    .choice-btn.correct { background: #27ae60; border-color: #2ecc71; }
+    .choice-btn.wrong   { background: #c0392b; border-color: #e74c3c; }
+    .choice-btn:disabled { cursor: not-allowed; }
+
+    /* ===== FEEDBACK ===== */
+    #feedback {
+      font-size: 1.3em;
+      font-weight: bold;
+      min-height: 30px;
+      text-align: center;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+      transition: all 0.3s;
+    }
+    #feedback.correct { color: #2ecc71; }
+    #feedback.wrong   { color: #e74c3c; }
+
+    /* ===== FUN FACT ===== */
+    #fun-fact {
+      font-size: 0.88em;
+      color: #aad4f5;
+      text-align: center;
+      max-width: 420px;
+      min-height: 40px;
+      background: rgba(0,212,255,0.07);
+      border-radius: 10px;
+      padding: 8px 14px;
+      margin-bottom: 14px;
+      font-style: italic;
+      display: none;
+    }
+
+    /* ===== NEXT BUTTON ===== */
+    #next-btn {
+      background: linear-gradient(135deg, #f39c12, #e74c3c);
+      color: #fff;
+      border: none;
+      padding: 11px 36px;
+      border-radius: 30px;
+      font-size: 1em;
+      cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(231,76,60,0.4);
+      display: none;
+      transition: transform 0.15s;
+      margin-bottom: 10px;
+    }
+    #next-btn:hover { transform: scale(1.05); }
+
+    /* ===== FINAL SCREEN ===== */
+    #final-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+      animation: fadeIn 0.6s ease;
+    }
+    #final-screen h2 { font-size: 2em; color: #ffd700; }
+    #final-screen p  { font-size: 1.1em; color: #cce7ff; max-width: 380px; }
+    #final-score     { font-size: 3em; font-weight: bold; color: #00d4ff; }
+    #restart-btn {
+      background: linear-gradient(135deg, #27ae60, #2ecc71);
+      color: #fff; border: none;
+      padding: 12px 36px; border-radius: 30px;
+      font-size: 1em; cursor: pointer; letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(46,204,113,0.4);
+      transition: transform 0.15s;
+    }
+    #restart-btn:hover { transform: scale(1.05); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== PROGRESS BAR ===== */
+    #progress-bar-wrap {
+      width: 420px; max-width: 95vw;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #00d4ff, #0070ff);
+      border-radius: 10px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ===== INSTRUCTIONS ===== */
+    #instructions {
+      font-size: 0.82em;
+      color: #7fa8c9;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌍 Where in the World?</h1>
+  <p>Icebreaker Game — Guess the Country from the Landmark!</p>
+</header>
+
+<div id="round-tracker"></div>
+<div id="scoreboard">Score: 0 / 0</div>
+
+<!-- GAME AREA -->
+<div id="game-area">
+  <div id="landmark-label">🔍 Clue loading...</div>
+  <div id="reveal-container">
+    <img id="landmark-img" src="" alt="Landmark" />
+    <div id="tile-overlay"></div>
+  </div>
+
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="instructions">Click "Reveal More" to uncover the image, then guess!</div>
+
+  <button id="reveal-btn" onclick="revealTiles()">👁️ Reveal More</button>
+
+  <div id="choices"></div>
+  <div id="feedback"></div>
+  <div id="fun-fact"></div>
+  <button id="next-btn" onclick="nextRound()">Next Round ➡️</button>
+</div>
+
+<!-- FINAL SCREEN -->
+<div id="final-screen">
+  <h2>🏆 Game Over!</h2>
+  <div id="final-score">0 / 4</div>
+  <p id="final-message"></p>
+  <button id="restart-btn" onclick="restartGame()">🔄 Play Again</button>
+</div>
+
+<script>
+// ============================================================
+//  GAME DATA — 4 Rounds (Philippines, India, USA, Latin America)
+//  Uses free Wikimedia Commons image URLs (public domain / CC)
+// ============================================================
+const rounds = [
+  {
+    country: "Philippines",
+    landmark: "Chocolate Hills, Bohol",
+    hint: "🍫 Over 1,200 cone-shaped hills turn brown in summer...",
+    fact: "The Chocolate Hills are a geological formation in Bohol, Philippines — there are 1,268 hills spread over 50 sq km, and they turn brown (like chocolate!) during the dry season.",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Chocolate_Hills_overview.JPG/640px-Chocolate_Hills_overview.JPG",
+    choices: ["Philippines", "India", "USA", "Latin America"],
+    flag: "🇵🇭"
+  },
+  {
+    country: "India",
+    landmark: "Taj Mahal, Agra",
+    hint: "🕌 A white marble mausoleum built in the 17th century...",
+    fact: "The Taj Mahal in Agra, India, was built by Emperor Shah Jahan in memory of his wife Mumtaz Mahal. It is a UNESCO World Heritage Site and one of the Seven Wonders of the World.",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Taj_Mahal%2C_Agra%2C_India_edit3.jpg/640px-Taj_Mahal%2C_Agra%2C_India_edit3.jpg",
+    choices: ["Philippines", "India", "USA", "Latin America"],
+    flag: "🇮🇳"
+  },
+  {
+    country: "USA",
+    landmark: "Grand Canyon, Arizona",
+    hint: "🏜️ A massive gorge carved by a river over millions of years...",
+    fact: "The Grand Canyon in Arizona, USA, is 277 miles long, up to 18 miles wide, and over a mile deep. It was carved by the Colorado River and is one of the most visited national parks in the world.",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Dawn_on_the_S_rim_of_the_Grand_Canyon_%288645178272%29.jpg/640px-Dawn_on_the_S_rim_of_the_Grand_Canyon_%288645178272%29.jpg",
+    choices: ["Philippines", "India", "USA", "Latin America"],
+    flag: "🇺🇸"
+  },
+  {
+    country: "Latin America",
+    landmark: "Machu Picchu, Peru",
+    hint: "🏔️ An ancient Incan citadel perched high in the Andes...",
+    fact: "Machu Picchu in Peru was built by the Inca Empire around 1450 AD. Sitting at 2,430 meters above sea level in the Andes, it is a UNESCO World Heritage Site and one of the New Seven Wonders of the World.",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Machu_Picchu%2C_Peru.jpg/640px-Machu_Picchu%2C_Peru.jpg",
+    choices: ["Philippines", "India", "USA", "Latin America"],
+    flag: "🇵🇪"
+  }
+];
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+let currentRound   = 0;
+let score          = 0;
+let tilesRevealed  = 0;
+let totalTiles     = 20; // 5 cols x 4 rows
+let revealInterval = null;
+let answered       = false;
+const TILES_PER_CLICK = 3;
+
+// ============================================================
+//  INIT
+// ============================================================
+function initGame() {
+  buildRoundTracker();
+  loadRound(0);
+}
+
+function buildRoundTracker() {
+  const tracker = document.getElementById('round-tracker');
+  tracker.innerHTML = '';
+  rounds.forEach((r, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'round-dot' + (i === 0 ? ' active' : '');
+    dot.id = `dot-${i}`;
+    dot.textContent = r.flag;
+    tracker.appendChild(dot);
+  });
+}
+
+function updateRoundTracker(current, done) {
+  rounds.forEach((_, i) => {
+    const dot = document.getElementById(`dot-${i}`);
+    dot.className = 'round-dot';
+    if (i < done)     dot.classList.add('done');
+    else if (i === current) dot.classList.add('active');
+  });
+}
+
+// ============================================================
+//  LOAD ROUND
+// ============================================================
+function loadRound(index) {
+  if (index >= rounds.length) { showFinalScreen(); return; }
+
+  const r = rounds[index];
+  answered     = false;
+  tilesRevealed = 0;
+
+  // Image
+  const img = document.getElementById('landmark-img');
+  img.src = r.image;
+  img.alt = r.landmark;
+
+  // Hint label
+  document.getElementById('landmark-label').textContent = `Round ${index+1} of ${rounds.length}: ${r.hint}`;
+
+  // Reset tiles
+  buildTileOverlay();
+
+  // Progress bar
+  document.getElementById('progress-bar').style.width = '0%';
+
+  // Choices
+  const choicesDiv = document.getElementById('choices');
+  choicesDiv.innerHTML = '';
+  // Shuffle choices
+  const shuffled = [...r.choices].sort(() => Math.random() - 0.5);
+  shuffled.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = getFlagEmoji(c) + ' ' + c;
+    btn.onclick = () => handleAnswer(c, r.country);
+    choicesDiv.appendChild(btn);
+  });
+
+  // Reset UI
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = '';
+  document.getElementById('fun-fact').style.display = 'none';
+  document.getElementById('fun-fact').textContent = '';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('reveal-btn').disabled = false;
+  document.getElementById('reveal-btn').textContent = '👁️ Reveal More';
+
+  updateRoundTracker(index, index);
+  updateScoreboard();
+}
+
+function getFlagEmoji(country) {
+  const flags = {
+    "Philippines": "🇵🇭",
+    "India": "🇮🇳",
+    "USA": "🇺🇸",
+    "Latin America": "🌎"
+  };
+  return flags[country] || "🌍";
+}
+
+// ============================================================
+//  TILE OVERLAY
+// ============================================================
+function buildTileOverlay() {
+  const overlay = document.getElementById('tile-overlay');
+  overlay.innerHTML = '';
+  for (let i = 0; i < totalTiles; i++) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.id = `tile-${i}`;
+    overlay.appendChild(tile);
+  }
+}
+
+function revealTiles() {
+  if (answered) return;
+
+  // Reveal TILES_PER_CLICK random hidden tiles
+  const hiddenTiles = [];
+  for (let i = 0; i < totalTiles; i++) {
+    const t = document.getElementById(`tile-${i}`);
+    if (!t.classList.contains('revealed')) hiddenTiles.push(i);
+  }
+
+  if (hiddenTiles.length === 0) {
+    document.getElementById('reveal-btn').disabled = true;
+    return;
+  }
+
+  // Shuffle and reveal
+  hiddenTiles.sort(() => Math.random() - 0.5);
+  const toReveal = hiddenTiles.slice(0, Math.min(TILES_PER_CLICK, hiddenTiles.length));
+  toReveal.forEach(idx => {
+    document.getElementById(`tile-${idx}`).classList.add('revealed');
+    tilesRevealed++;
+  });
+
+  // Update progress bar
+  const pct = (tilesRevealed / totalTiles) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+
+  if (tilesRevealed >= totalTiles) {
+    document.getElementById('reveal-btn').disabled = true;
+    document.getElementById('reveal-btn').textContent = '✅ Fully Revealed';
+  }
+}
+
+// ============================================================
+//  ANSWER HANDLING
+// ============================================================
+function handleAnswer(selected, correct) {
+  if (answered) return;
+  answered = true;
+
+  const buttons = document.querySelectorAll('.choice-btn');
+  const feedback = document.getElementById('feedback');
+  const funFact  = document.getElementById('fun-fact');
+
+  // Reveal all tiles on answer
+  for (let i = 0; i < totalTiles; i++) {
+    document.getElementById(`tile-${i}`).classList.add('revealed');
+  }
+  tilesRevealed = totalTiles;
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('reveal-btn').disabled = true;
+
+  buttons.forEach(btn => {
+    btn.disabled = true;
+    const btnCountry = btn.textContent.replace(/[^a-zA-Z ]/g, '').trim();
+    if (btnCountry === correct) btn.classList.add('correct');
+    else if (btnCountry === selected && selected !== correct) btn.classList.add('wrong');
+  });
+
+  if (selected === correct) {
+    score++;
+    feedback.textContent = '🎉 Correct! Well done!';
+    feedback.className = 'correct';
+  } else {
+    feedback.textContent = `❌ Not quite! It was ${getFlagEmoji(correct)} ${correct}`;
+    feedback.className = 'wrong';
+  }
+
+  // Show fun fact
+  const r = rounds[currentRound];
+  funFact.textContent = `📚 Fun Fact: ${r.fact}`;
+  funFact.style.display = 'block';
+
+  updateScoreboard();
+  document.getElementById('next-btn').style.display = 'inline-block';
+  document.getElementById('next-btn').textContent =
+    currentRound < rounds.length - 1 ? 'Next Round ➡️' : '🏁 See Results';
+}
+
+// ============================================================
+//  NEXT ROUND
+// ============================================================
+function nextRound() {
+  updateRoundTracker(currentRound + 1, currentRound + 1);
+  currentRound++;
+  if (currentRound >= rounds.length) {
+    showFinalScreen();
+  } else {
+    loadRound(currentRound);
+  }
+}
+
+// ============================================================
+//  SCOREBOARD
+// ============================================================
+function updateScoreboard() {
+  document.getElementById('scoreboard').textContent =
+    `Score: ${score} / ${Math.min(currentRound + (answered ? 1 : 0), rounds.length)}`;
+}
+
+// ============================================================
+//  FINAL SCREEN
+// ============================================================
+function showFinalScreen() {
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('round-tracker').style.display = 'none';
+  const final = document.getElementById('final-screen');
+  final.style.display = 'flex';
+
+  document.getElementById('final-score').textContent = `${score} / ${rounds.length}`;
+
+  const msgs = [
+    [4, "🌟 Perfect Score! You're a World Geography Champion!"],
+    [3, "🎯 Excellent! You really know your world landmarks!"],
+    [2, "👍 Good effort! A little more globe-trotting and you'll ace it!"],
+    [1, "🌱 Keep exploring the world — every journey starts somewhere!"],
+    [0, "😄 Time to book some flights! The world awaits you!"]
+  ];
+  const msg = msgs.find(m => m[0] === score) || msgs[msgs.length - 1];
+  document.getElementById('final-message').textContent = msg[1];
+  document.getElementById('scoreboard').textContent = `Final Score: ${score} / ${rounds.length}`;
+}
+
+// ============================================================
+//  RESTART
+// ============================================================
+function restartGame() {
+  currentRound  = 0;
+  score         = 0;
+  tilesRevealed = 0;
+  answered      = false;
+
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('round-tracker').style.display = 'flex';
+  document.getElementById('final-screen').style.display = 'none';
+
+  buildRoundTracker();
+  loadRound(0);
+}
+
+// ============================================================
+//  START!
+// ============================================================
+initGame();
+</script>
+</body>
+</html>
